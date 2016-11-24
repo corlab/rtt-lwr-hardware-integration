@@ -184,7 +184,7 @@ bool lwr_robot::configureHook() {
 		std::vector<std::string> enabled_joints_in_chain;
 		_xbotcore_model.get_enabled_joints_in_chain(chain_name,
 				enabled_joints_in_chain);
-		srdf::Model::RTTGazebo temp = _xbotcore_model.getRTTGazebo(chain_name);
+//		srdf::Model::RTTGazebo temp = _xbotcore_model.getRTTGazebo(chain_name);
 		kinematic_chains.insert(
 				std::pair<std::string, boost::shared_ptr<KinematicChain>>(
 						chain_name,
@@ -192,8 +192,9 @@ bool lwr_robot::configureHook() {
 								new KinematicChain(chain_name,
 										enabled_joints_in_chain,
 										*(this->ports()),
-										new friRemote(49939,
-												temp.hardware_info_.address_.c_str(),
+                                        new friRemote(49938,
+//												temp.hardware_info_.address_.c_str(),
+                                                "192.168.0.20",
 												ip_addr.c_str(),
 												this->getActivity()->thread()->getTask())))));
 	}

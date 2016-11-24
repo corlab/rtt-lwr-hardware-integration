@@ -82,12 +82,12 @@ void friUdp::Init(const char * remoteHost, const char * serverHost) {
 	memset(&servAddr, 0, sizeof(servAddr));
 	memset(&krcAddr, 0, sizeof(krcAddr));
 
-#ifdef HAVE_RTNET
+//#ifdef HAVE_RTNET
 	/* socket creation */
-	udp_socket_ = rt_dev_socket(AF_INET, SOCK_DGRAM, 0);
-#else
+//	udp_socket_ = rt_dev_socket(AF_INET, SOCK_DGRAM, 0);
+//#else
 	udp_socket_ = socket(PF_INET, SOCK_DGRAM, 0);
-#endif
+//#endif
 	if (udp_socket_ < 0) {
 		printf("cannot create listener sock, error: %d, %s", errno,
 				strerror(errno));
@@ -101,13 +101,13 @@ void friUdp::Init(const char * remoteHost, const char * serverHost) {
 	//int64_t tout = 1*10000;
 	// let socket immidiately return
 	// int64_t tout = -1;
-#ifdef HAVE_RTNET
-	if (rt_dev_ioctl(udp_socket_, RTNET_RTIOC_TIMEOUT, &tout) < 0) {
-		printf("cannot make socket non-blocking, error: %d, %s", errno,
-				strerror(errno));
-		exit(-1);
-	}
-#endif
+//#ifdef HAVE_RTNET
+//	if (rt_dev_ioctl(udp_socket_, RTNET_RTIOC_TIMEOUT, &tout) < 0) {
+//		printf("cannot make socket non-blocking, error: %d, %s", errno,
+//				strerror(errno));
+//		exit(-1);
+//	}
+//#endif
 #ifdef HAVE_TIME_STAMP_RECEIVE
 	{
 		int temp = 1;
@@ -143,21 +143,21 @@ void friUdp::Init(const char * remoteHost, const char * serverHost) {
 	}
 
 	//  if (bind(udpSock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0)
-#ifdef HAVE_RTNET
-	if (rt_dev_bind(udp_socket_, (struct sockaddr *) &servAddr,
-					sizeof(servAddr)) < 0) {
-		printf("binding port number %d failed!\n", serverPort);
-		Close();
-		exit(1);
-	}
-#else
+//#ifdef HAVE_RTNET
+//	if (rt_dev_bind(udp_socket_, (struct sockaddr *) &servAddr,
+//					sizeof(servAddr)) < 0) {
+//		printf("binding port number %d failed!\n", serverPort);
+//		Close();
+//		exit(1);
+//	}
+//#else
 	if (bind(udp_socket_, (struct sockaddr *) &servAddr, sizeof(servAddr))
 			< 0) {
 		printf("binding port number %d failed!\n", serverPort);
 		Close();
 		exit(1);
 	}
-#endif
+//#endif
 	// if the remote host is specified,
 	// preinitialize the socket properly
 	if (remoteHost) {
@@ -233,13 +233,13 @@ int friUdp::Send(tFriCmdData *data) {
 	//  printf("krc sending port %d\n", krcAddr.sin_port);
 	if ((udp_socket_ >= 0) && (ntohs(krcAddr.sin_port) != 0)) {
 		ssize_t size;
-#ifdef HAVE_RTNET
-		size = rt_dev_sendto(udp_socket_, (char *) data, sizeof(tFriCmdData), 0,
-				(struct sockaddr*) &krcAddr, sizeof(krcAddr));
-#else
+//#ifdef HAVE_RTNET
+//		size = rt_dev_sendto(udp_socket_, (char *) data, sizeof(tFriCmdData), 0,
+//				(struct sockaddr*) &krcAddr, sizeof(krcAddr));
+//#else
 		size = sendto(udp_socket_, (char *) data, sizeof(tFriCmdData), 0,
 		                      (struct sockaddr *)&krcAddr, sizeof(krcAddr));
-#endif
+//#endif
 		if (size == sizeof(tFriCmdData)) {
 			return 0;
 		}
@@ -344,13 +344,13 @@ int friUdp::RecvPacket(int udp_socket, tFriMsrData* data, struct timeval* ts,
 		sockAddrSize = sizeof(struct sockaddr_in);
 
 		int size;
-#ifdef HAVE_RTNET
-		size = rt_dev_recvfrom(udp_socket, (char *) data, sizeof(tFriMsrData),
-				0, (struct sockaddr *) client, &sockAddrSize);
-#else
+//#ifdef HAVE_RTNET
+//		size = rt_dev_recvfrom(udp_socket, (char *) data, sizeof(tFriMsrData),
+//				0, (struct sockaddr *) client, &sockAddrSize);
+//#else
 		size = recvfrom(udp_socket, (char *) data, sizeof(tFriMsrData),
 						0, (struct sockaddr *) client, (unsigned int *) &sockAddrSize);
-#endif
+//#endif
 		if (size < 0) {
 			//return -1;
 			if ((size == -EWOULDBLOCK) | (size == -EAGAIN)) { // no msg was available

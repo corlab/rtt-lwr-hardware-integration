@@ -7,7 +7,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g -Wall -O3 -fPIC -DHAVE_SOC
 
 
 
-find_package(OROCOS-RTT REQUIRED COMPONENTS rtt-scripting rtt-transport-corba rtt-typekit)
+find_package(OROCOS-RTT REQUIRED COMPONENTS rtt-scripting rtt-typekit)
 if (NOT OROCOS-RTT_FOUND)
   message (FATAL_ERROR "\nCould not find Orocos-RTT. Please use the shell command\n 'source orocos_toolchain/env.sh' and then run cmake again.")
 endif()
@@ -22,17 +22,6 @@ find_package(urdfdom_headers 0.4.2 REQUIRED)
 find_package(srdfdom_advr REQUIRED)
 find_package(XBotCoreModel REQUIRED)
 
-find_package(RCI REQUIRED)
-message(STATUS "RCI version: ${RCI_VERSION}")	
-include_directories(BEFORE SYSTEM ${RCI_INCLUDE_DIRS})	
-add_definitions(${RCI_CFLAGS})
-link_directories(${RCI_LIBRARY_DIR})
-
-find_package(RSC REQUIRED)
-message(STATUS "RSC version: ${RSC_VERSION}")	
-include_directories(BEFORE SYSTEM ${RSC_INCLUDE_DIRS})	
-add_definitions(${RSC_CFLAGS})
-link_directories(${RSC_LIBRARY_DIR})
 
 
 if(${OROCOS_TARGET} STREQUAL "xenomai" )
@@ -119,12 +108,9 @@ target_link_libraries(lwr_fri
   ${orocos_kdl_LIBRARIES} 
   ${OROCOS-RTT_LIBRARIES}
   ${OROCOS-RTT_RTT-SCRIPTING_LIBRARY} 
-  ${OROCOS-RTT_RTT-TRANSPORT-CORBA_LIBRARY}
   ${OROCOS-RTT_TYPEKIT_LIBRARIES}
   ${USE_OROCOS_LIBRARIES}
   ${Boost_LIBRARIES}
-  ${RSC_LIBRARIES}
-  ${RCI_LIBRARIES}
    FRI_RT
    ${RTLIB_LIBRARIES}
    ${RST-RT_LIBRARIES}
