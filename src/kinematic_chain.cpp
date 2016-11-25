@@ -13,6 +13,24 @@ KinematicChain::KinematicChain(const std::string& chain_name,
 	char str[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, &(_fri_inst->remote.krcAddr.sin_addr), str,
 	INET_ADDRSTRLEN);
+
+
+    RTT::log(RTT::Info) << "Opening FRI Version "
+                        << FRI_MAJOR_VERSION << "." << FRI_SUB_VERSION << "." <<FRI_DATAGRAM_ID_CMD << "." <<FRI_DATAGRAM_ID_MSR
+                  << " Interface for LWR ROS server" << RTT::endlog();
+
+
+
+
+    RTT::log(RTT::Info) << "Checking if the robot is Stopped..." << RTT::endlog();
+    if( this->_fri_inst->getState() == FRI_STATE_OFF )
+    {
+     RTT::log(RTT::Info) << "Please, start the KRL script now." << RTT::endlog();
+    }
+
+
+
+
 	//store krc_ip address in case it's needed
 	this->_krc_ip = std::string(str);
 	RTT::log(RTT::Info) << "Creating Kinematic Chain " << chain_name
@@ -47,7 +65,8 @@ bool KinematicChain::initKinematicChain() {
 	//set zero vector for torque mode 0 vectors
 	zero_vector = new float[_number_of_dofs];
 	RTT::log(RTT::Info) << "DEBUG4" << RTT::endlog();
-	memset(zero_vector, 0, _number_of_dofs * sizeof(*zero_vector));
+//    memset(zero_vector, 0.00001, _number_of_dofs * sizeof(*zero_vector));
+    memset(zero_vector, 0, _number_of_dofs * sizeof(*zero_vector));
 	_joint_pos.resize(_number_of_dofs);
 	_joint_pos.setZero();
 	_joint_trq.resize(_number_of_dofs);
@@ -261,14 +280,15 @@ bool KinematicChain::setControlMode(const std::string &controlMode) {
 void KinematicChain::sense() {
 	//recieve data from fri
 	_fri_inst->doReceiveData();
-	//set mode command to zero so fri does not continue if it is being executed again (possibly move to component stop method)
-	_fri_inst->setToKRLInt(15, 0);
+    //set mode command to zero so fri does not continue if it is being executed again (possibly move to component stop method)
+    _fri_inst->setToKRLInt(15, 0);
 	//if not in monitor mode straight return as nothing can be sensed
-	if (_fri_inst->getFrmKRLInt(15) < 10) {
+    if (_fri_inst->getFrmKRLInt(15) < 10) {
 		return;
 	}
 	//if in monitor mode command fri to switch to command mode with the correct control mode
 	if (_fri_inst->getFrmKRLInt(15) == 10) {
+        // call startFRI with this command below!
 		_fri_inst->setToKRLInt(15, 10);
 		//return;
 	}
@@ -322,6 +342,7 @@ void KinematicChain::getCommand() {
 }
 
 void KinematicChain::move() {
+    RTT::log(RTT::Info) <<"\n"<<_fri_inst->getCmdBuf().cmd.cmdFlags<<"\n"<<_fri_inst->getCurrentCommandFlags()<<RTT::endlog();
 	/*if(_fri_inst->getQuality()!= FRI_QUALITY::FRI_QUALITY_PERFECT){
 
 	 return;
@@ -348,14 +369,18 @@ void KinematicChain::move() {
 			//if(_fri_inst->getCurrentControlScheme()
 			//		!= FRI_CTRL::FRI_CTRL_JNT_IMP){
 			//	_fri_inst->setToKRLInt(1, 30);
-			//}else{
+			//}else{            
 			std::vector<int> joint_scoped_names = getJointScopedNames();
 			for (unsigned int i = 0; i < joint_scoped_names.size(); ++i) {
-				_joint_trq(joint_scoped_names[i]) =
-						torque_controller->joint_cmd.torques(i);
+                _joint_trq(joint_scoped_names[i]) =
+                        torque_controller->joint_cmd.torques(i);
 			}
-			_fri_inst->doJntImpedanceControl(_fri_inst->getMsrMsrJntPosition(),
-					zero_vector, zero_vector, _joint_trq.data(), false);
+
+            //if (torque_controller->joint_cmd_fs == RTT::NewData) {
+                RTT::log(RTT::Info) << "tau:\n" << _joint_trq << RTT::endlog();
+                _fri_inst->doJntImpedanceControl(_fri_inst->getMsrMsrJntPosition(),
+                    zero_vector, zero_vector, _joint_trq.data(), false);
+            //}
 //}
 		} else if (_current_control_mode == ControlModes::JointImpedanceCtrl) {
 //if(_fri_inst->getCurrentControlScheme()
@@ -436,5 +461,16 @@ bool KinematicChain::initKRC() {
 
 	 _fri_inst->doSendData();
 	 }*/
+
+
+    // TODO dlw
+    //this->_fri_inst->setToKRLInt(1, 1);
+    //this->_fri_inst->doDataExchange();
+
+
+    RTT::log(RTT::Info) << "FRI Status:\n" << this->_fri_inst->getMsrBuf().intf << RTT::endlog();
+    RTT::log(RTT::Info) << "Sampling Rate: " << this->_fri_inst->getSampleTime() << RTT::endlog();
+
+
 	return true;
 }
