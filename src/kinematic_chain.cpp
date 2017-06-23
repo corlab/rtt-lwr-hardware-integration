@@ -33,8 +33,7 @@ KinematicChain::KinematicChain(const std::string& chain_name,
 
 	//store krc_ip address in case it's needed
 	this->_krc_ip = std::string(str);
-	RTT::log(RTT::Info) << "Creating Kinematic Chain " << chain_name
-			<< RTT::endlog();
+	RTT::log(RTT::Info) << "Creating Kinematic Chain " << chain_name << " WITH IP: "<<this->_krc_ip<< RTT::endlog();
 	//changed from string string pair to string int as FRI doesn't use joint names but rather indexed positions (could change back to string and convert to int again?)
 	for (unsigned int i = 0; i < _joint_names.size(); ++i)
 		_map_joint_name_index.insert(
@@ -47,6 +46,17 @@ KinematicChain::KinematicChain(const std::string& chain_name,
 	_initial_joints_configuration.reserve(joint_names.size());
 	for (unsigned int i = 0; i < joint_names.size(); ++i)
 		_initial_joints_configuration.push_back(0.0);
+
+	estExtTorques = rstrt::dynamics::JointTorques(_joint_names.size());
+	estExtTorques.torques.setZero();
+	estExtTorques_port.setName("est_ext_torque");
+	estExtTorques_port.setDataSample(estExtTorques);
+	output_M_var.setZero();
+	std::string temp_str = chain_name;
+	temp_str.append("_output_M");
+	output_M_port.setName(temp_str);
+	output_M_port.setDataSample(output_M_var);
+	_ports.addPort(output_M_port);
 }
 
 std::vector<RTT::base::PortInterface*> KinematicChain::getAssociatedPorts() {
@@ -139,7 +149,7 @@ void KinematicChain::setFeedBack() {
 	full_feedback->orocos_port.setName(
 			_kinematic_chain_name + "_JointFeedback");
 	full_feedback->orocos_port.doc(
-			"Output for Joint-fb from FRI to Orocos world. Contains joint-position, -velocity and -torque.");
+			"Output for Joint-fb from FRI to Orocos world. Contains joint-position, and -torque.");
 	_ports.addPort(full_feedback->orocos_port);
 	// TODO needs to be solved better
 	_inner_ports.push_back(
@@ -272,27 +282,44 @@ bool KinematicChain::setControlMode(const std::string &controlMode) {
 //	else if (controlMode == ControlModes::JointTorqueCtrl
 //			|| controlMode == ControlModes::JointImpedanceCtrl)
 //		_gazebo_position_joint_controller->Reset();
-
+	_fri_inst->doDataExchange();
 	_current_control_mode = controlMode;
 	return true;
 }
 
 void KinematicChain::sense() {
+	RTT::log(RTT::Info) <<_fri_inst->getQuality() <<" QUALITY"<<RTT::endlog();
 	//recieve data from fri
 	_fri_inst->doReceiveData();
-    //set mode command to zero so fri does not continue if it is being executed again (possibly move to component stop method)
-    _fri_inst->setToKRLInt(15, 0);
+	//set mode command to zero so fri does not continue if it is being executed again (possibly move to component stop method)
+	_fri_inst->setToKRLInt(15, 0);
+	if(_fri_inst->getQuality()<2){
+	    return;
+	}
 	//if not in monitor mode straight return as nothing can be sensed
-    if (_fri_inst->getFrmKRLInt(15) < 10) {
+	if (_fri_inst->getFrmKRLInt(15) < 10) {
+		RTT::log(RTT::Info) << _fri_inst->getFrmKRLInt(15)<<", "<<_fri_inst->getQuality()<<" :NOTHING BEING SENSED"<<_kinematic_chain_name<< RTT::endlog();
 		return;
 	}
+	/*if (_fri_inst->getCurrentControlScheme()!=FRI_CTRL_JNT_IMP){
+		RTT::log(RTT::Info) << _fri_inst->getFrmKRLInt(15)<<", "<<_fri_inst->getQuality()<<" :ControlMode"<<_kinematic_chain_name<< RTT::endlog();
+		//setCommand
+		return;
+	}*/
 	//if in monitor mode command fri to switch to command mode with the correct control mode
 	if (_fri_inst->getFrmKRLInt(15) == 10) {
         // call startFRI with this command below!
-		_fri_inst->setToKRLInt(15, 10);
+		RTT::log(RTT::Info) <<_fri_inst->getQuality() <<" SWITCHING TO COMMAND MODE"<<_kinematic_chain_name<< RTT::endlog();
+		if(_fri_inst->getQuality()>=2){
+			_fri_inst->setToKRLInt(15, 10);
+		//_fri_inst->doDataExchange();
+		}
+		//setControlMode(_current_control_mode);
+
 		//return;
 	}
 	if (full_feedback) {
+		RTT::log(RTT::Info) << "FEEDBACK RECEIVING"<<_kinematic_chain_name<< RTT::endlog();
 		time_now = RTT::os::TimeService::Instance()->getNSecs();
 		//get the current pos
 		for (unsigned int i = 0; i < _number_of_dofs; ++i)
@@ -313,13 +340,20 @@ void KinematicChain::sense() {
 					_fri_inst->getMsrJntTrq()[i];
 		}
 
+		output_M_port.write(Eigen::Map<Eigen::Matrix<float,7,7>>(_fri_inst->getMsrBuf().data.massMatrix));
+		estExtTorques.torques = Eigen::Map<Eigen::VectorXf>(_fri_inst->getMsrBuf().data.estExtJntTrq,7,1);
+		estExtTorques_port.write(estExtTorques);
 		if (full_feedback->orocos_port.connected())
 			full_feedback->orocos_port.write(full_feedback->joint_feedback);
 		last_time = time_now;
 	}
+	
 }
 
 void KinematicChain::getCommand() {
+	if(_fri_inst->getQuality()<2){
+	    return;
+	}
 	if (_current_control_mode == ControlModes::JointTorqueCtrl)
 		torque_controller->joint_cmd_fs =
 				torque_controller->orocos_port.readNewest(
@@ -342,14 +376,21 @@ void KinematicChain::getCommand() {
 }
 
 void KinematicChain::move() {
-    RTT::log(RTT::Info) <<"\n"<<_fri_inst->getCmdBuf().cmd.cmdFlags<<"\n"<<_fri_inst->getCurrentCommandFlags()<<RTT::endlog();
+//    RTT::log(RTT::Info) <<"\n"<<_fri_inst->getCmdBuf().cmd.cmdFlags<<"\n"<<_fri_inst->getCurrentCommandFlags()<<RTT::endlog();
+	if(_fri_inst->getQuality()<2){
+	    _fri_inst->doSendData();
+	    return;
+	}
 	/*if(_fri_inst->getQuality()!= FRI_QUALITY::FRI_QUALITY_PERFECT){
 
 	 return;
 	 }*/
 //only run when KRC is in command mode (don't need to check for perfect communication as the program will only go into command mode when communication is perfect)
+	RTT::log(RTT::Info) << "MOVE "<<_kinematic_chain_name<< RTT::endlog();
 	if (_fri_inst->getFrmKRLInt(15) == 20) {
+		RTT::log(RTT::Info) << "CMD MODE"<< RTT::endlog();
 		if (_current_control_mode == ControlModes::JointPositionCtrl) {
+			RTT::log(RTT::Info) << "JNTPOS MODE"<< RTT::endlog();
 			//if(_fri_inst->getCurrentControlScheme()
 			//		!= FRI_CTRL::FRI_CTRL_POSITION){
 			//	_fri_inst->setToKRLInt(1, 10);
@@ -362,10 +403,11 @@ void KinematicChain::move() {
 				_joint_pos(joint_scoped_names[i]) =
 						position_controller->joint_cmd.angles(i);
 			}
+			RTT::log(RTT::Info) << "JNTPOS: "<<_joint_pos<< RTT::endlog();
 			if (position_controller->joint_cmd_fs == RTT::NewData) {
 				_fri_inst->doPositionControl(_joint_pos.data(), false);
 			}
-		} else if (_current_control_mode == ControlModes::JointTorqueCtrl) {
+		} else if (_current_control_mode == ControlModes::JointTorqueCtrl && _fri_inst->getCurrentControlScheme()==FRI_CTRL_JNT_IMP) {
 			//if(_fri_inst->getCurrentControlScheme()
 			//		!= FRI_CTRL::FRI_CTRL_JNT_IMP){
 			//	_fri_inst->setToKRLInt(1, 30);
@@ -410,6 +452,7 @@ void KinematicChain::move() {
 					_fri_inst->getMsrBuf().data.cmdJntPos[i]
 							+ _fri_inst->getMsrBuf().data.cmdJntPosFriOffset[i];
 		}
+		RTT::log(RTT::Info) << _fri_inst->getFrmKRLInt(15)<<", "<<_fri_inst->getQuality()<<" :ControlMode"<<_kinematic_chain_name<< RTT::endlog();
 	}
 
 	//Send data
