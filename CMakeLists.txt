@@ -5,8 +5,6 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g -Wall -O3 -fPIC -DHAVE_SOCKLEN_T")
 #list(APPEND CMAKE_CXX_FLAGS "-std=c++11")
 
-
-
 find_package(OROCOS-RTT REQUIRED COMPONENTS rtt-scripting rtt-typekit)
 if (NOT OROCOS-RTT_FOUND)
   message (FATAL_ERROR "\nCould not find Orocos-RTT. Please use the shell command\n 'source orocos_toolchain/env.sh' and then run cmake again.")
@@ -25,16 +23,22 @@ find_package(XBotCoreModel REQUIRED)
 
 
 if(${OROCOS_TARGET} STREQUAL "xenomai" )
-  message(STATUS "checking for xenomai")
+  message(STATUS "Checking for xenomai")
   find_package(Xenomai REQUIRED)
   message(STATUS ${Xenomai_LIBRARY_DIRS})
   set_property(DIRECTORY ${PROJECT_SOURCE_DIR} APPEND PROPERTY COMPILE_DEFINITIONS XENOMAI)
-message(STATUS "checking for RTNET")
+message(STATUS "Checking for RTnet")
 find_package(RTnet)
 if(${RTNET_FOUND})
+  message(STATUS "RTnet found!")
   set_property(DIRECTORY ${PROJECT_SOURCE_DIR} APPEND PROPERTY COMPILE_DEFINITIONS HAVE_RTNET)
   set(RTLIB_LIBRARIES rtdm)
-include_directories(${RTNET_INCLUDE_DIR})
+  message(STATUS "RTLIB_LIBRARIES: ${RTLIB_LIBRARIES}")
+  include_directories(${RTNET_INCLUDE_DIR})
+  message(STATUS "RTLIB_LIBRARIES: ${RTLIB_LIBRARIES}")
+  message(STATUS "RTNET_INCLUDE_DIR: ${RTNET_INCLUDE_DIR}")
+else()
+  message(STATUS "RTnet not found! So it will be skipped.")
 endif()
 endif()
 
@@ -80,9 +84,9 @@ link_directories(
   ${PROJECT_NAME_BIN}/lib 
   ${Boost_LIBRARY_DIR}
   ${Xenomai_LIBRARY_DIRS}
-  )
+)
   
-  SET(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
+SET(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib)
 
 include_directories(include
   ${Boost_INCLUDE_DIR}
@@ -93,11 +97,11 @@ include_directories(include
   ${TINYXML_INCLUDE_DIRS}
 ${urdfdom_INCLUDE_DIRS}
 ${urdfdom_headers_INCLUDE_DIRS}
-    ${srdfdom_advr_INCLUDE_DIRS}
-    ${XBotCoreModel_INCLUDE_DIRS}
-  )
+  ${srdfdom_advr_INCLUDE_DIRS}
+  ${XBotCoreModel_INCLUDE_DIRS}
+)
  
- ADD_LIBRARY(FRI_RT
+ADD_LIBRARY(FRI_RT
   src/friremote_rt.cpp  
   src/friudp_rt.cpp  
 )
@@ -111,14 +115,14 @@ target_link_libraries(lwr_fri
   ${OROCOS-RTT_TYPEKIT_LIBRARIES}
   ${USE_OROCOS_LIBRARIES}
   ${Boost_LIBRARIES}
-   FRI_RT
-   ${RTLIB_LIBRARIES}
-   ${RST-RT_LIBRARIES}
-    ${TINYXML_LIBRARIES}
-    ${urdfdom_LIBRARIES}
-   ${urdfdom_headers_LIBRARIES}
-   ${srdfdom_advr_LIBRARIES}
-   ${XBotCoreModel_LIBRARIES}
-   )
+  FRI_RT
+  ${RTLIB_LIBRARIES}
+  ${RST-RT_LIBRARIES}
+  ${TINYXML_LIBRARIES}
+  ${urdfdom_LIBRARIES}
+  ${urdfdom_headers_LIBRARIES}
+  ${srdfdom_advr_LIBRARIES}
+  ${XBotCoreModel_LIBRARIES}
+)
 
 orocos_generate_package(INCLUDE_DIRS include)
