@@ -42,10 +42,11 @@ lwr_robot::lwr_robot(const std::string &name) :
 			&lwr_robot::resetModelConfiguration, this, RTT::ClientThread);
 
 	//assign ip address of this computer
-	this->ip_addr = "192.168.0.51";
+	this->ip_addr = "192.168.0.1";
 	addProperty("ip_addr", ip_addr).doc("IP address of the computer");
 
 	_models_loaded = false;
+	remote = NULL;
 }
 /*
  std::map<std::string, int> lwr_robot::getJointMappingForPort(
@@ -184,7 +185,10 @@ bool lwr_robot::configureHook() {
 		std::vector<std::string> enabled_joints_in_chain;
 		_xbotcore_model.get_enabled_joints_in_chain(chain_name,
 				enabled_joints_in_chain);
+
 //		srdf::Model::RTTGazebo temp = _xbotcore_model.getRTTGazebo(chain_name);
+//		srdf_advr::Model::RTTGazebo temp = _xbotcore_model.getRTTGazebo(chain_name);
+
 		kinematic_chains.insert(
 				std::pair<std::string, boost::shared_ptr<KinematicChain>>(
 						chain_name,
@@ -192,11 +196,14 @@ bool lwr_robot::configureHook() {
 								new KinematicChain(chain_name,
 										enabled_joints_in_chain,
 										*(this->ports()),
-                                        new friRemote(49938,
-//												temp.hardware_info_.address_.c_str(),
-                                                "192.168.0.20",
-												ip_addr.c_str(),
-												this->getActivity()->thread()->getTask())))));
+new friRemote(49938,
+//temp.hardware_info_.portNo_,
+//temp.hardware_info_.address_.c_str(),
+    "192.168.0.20", ip_addr.c_str(), this->getActivity()->thread()->getTask())))));
+//RTT::log(RTT::Info) << "PORTNO: " << temp.hardware_info_.portNo_<< RTT::endlog();
+RTT::log(RTT::Info) << "IP: " << ip_addr<< RTT::endlog();
+//RTT::log(RTT::Info) << "IP2: " << temp.hardware_info_.address_<< RTT::endlog();
+
 	}
 
 	RTT::log(RTT::Info) << "Kinematic Chains map created!" << kinematic_chains.size()<< RTT::endlog();
