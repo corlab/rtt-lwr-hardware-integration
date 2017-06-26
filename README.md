@@ -12,6 +12,8 @@ Specifically designed using kinematic chains for use with [rtt-core-extensions](
 Realtime:
 - Ubuntu with Xenomai patched kernel and RTNet
   - (Tested on Ubuntu 14.04 with Xenomai 2.6.4 and RTNet)
+  
+For **install instructions on Xenomai** read: http://rtt-lwr.readthedocs.io/en/latest/rtpc/xenomai.html
 
 Non-realtime:
 - Ubuntu only
